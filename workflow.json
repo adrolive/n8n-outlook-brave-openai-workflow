@@ -1,0 +1,201 @@
+{
+  "name": "Outlook-Brave-OpenAI Integration",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": "*/30 * * * *"
+      },
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "calendar",
+        "operation": "getEvents",
+        "calendar": "primary",
+        "returnAll": true,
+        "filters": {
+          "start": "={{$today}}",
+          "end": "={{$today}}"
+        }
+      },
+      "name": "Microsoft Outlook",
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 1,
+      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "
+        const events = items[0].json.value;
+        const externalAttendees = [];
+        
+        for (const event of events) {
+          if (event.attendees) {
+            const external = event.attendees.filter(attendee => {
+              const email = attendee.emailAddress.address.toLowerCase();
+              return email.includes('@gmail.com') || 
+                     email.includes('@outlook.com') ||
+                     email.includes('@hotmail.com');
+            });
+            
+            if (external.length > 0) {
+              externalAttendees.push({
+                eventId: event.id,
+                subject: event.subject,
+                start: event.start.dateTime,
+                attendees: external
+              });
+            }
+          }
+        }
+        
+        return externalAttendees.map(item => ({json: item}));"
+      },
+      "name": "Filter External Contacts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        650,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.search.brave.com/res/v1/web/search",
+        "authentication": "headerAuth",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Subscription-Token",
+              "value": "={{ $env.BRAVE_API_KEY }}"
+            }
+          ]
+        },
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ $json.attendees[0].emailAddress.address }}"
+            }
+          ]
+        }
+      },
+      "name": "Brave Search",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [
+        850,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "apiKey",
+        "apiKey": "={{ $env.OPENAI_API_KEY }}",
+        "prompt": "=Resuma as seguintes informações sobre o contato {{ $json.attendees[0].emailAddress.address }}:\n\n{{ $json.braveResults }}",
+        "model": "gpt-3.5-turbo",
+        "options": {
+          "temperature": 0.5,
+          "maxTokens": 200
+        }
+      },
+      "name": "OpenAI",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        1050,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $env.SMTP_FROM }}",
+        "toEmail": "={{ $env.INTERNAL_TEAM_EMAIL }}",
+        "subject": "=Resumo do contato para reunião: {{ $json.subject }}",
+        "text": "=Olá equipe,\n\nSegue resumo do contato externo para a reunião de hoje:\n\n{{ $json.summary }}\n\nDetalhes da reunião:\nAssunto: {{ $json.subject }}\nData: {{ $json.start }}\n\nAtenciosamente,\nBot de Resumos"
+      },
+      "name": "Send Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [
+        1250,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Microsoft Outlook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Microsoft Outlook": {
+      "main": [
+        [
+          {
+            "node": "Filter External Contacts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter External Contacts": {
+      "main": [
+        [
+          {
+            "node": "Brave Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Brave Search": {
+      "main": [
+        [
+          {
+            "node": "OpenAI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "pinData": {},
+  "versionId": "1",
+  "meta": {
+    "instanceId": "b888bd11f2a9b8f89f5bc"
+  }
+}
