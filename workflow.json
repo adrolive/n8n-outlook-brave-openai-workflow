@@ -1,10 +1,10 @@
 {
-  "name": "Outlook-Brave-OpenAI Integration",
   "nodes": [
     {
       "parameters": {
         "rule": "*/30 * * * *"
       },
+      "id": "8c1eb1c1-d254-4c88-8bed-9f4e524543a6",
       "name": "Schedule Trigger",
       "type": "n8n-nodes-base.cron",
       "typeVersion": 1,
@@ -24,42 +24,26 @@
           "end": "={{$today}}"
         }
       },
+      "id": "8c1eb1c1-d254-4c88-8bed-9f4e524543a7",
       "name": "Microsoft Outlook",
       "type": "n8n-nodes-base.microsoftOutlook",
       "typeVersion": 1,
       "position": [
         450,
         300
-      ]
+      ],
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "1",
+          "name": "Microsoft Outlook account"
+        }
+      }
     },
     {
       "parameters": {
-        "jsCode": "
-        const events = items[0].json.value;
-        const externalAttendees = [];
-        
-        for (const event of events) {
-          if (event.attendees) {
-            const external = event.attendees.filter(attendee => {
-              const email = attendee.emailAddress.address.toLowerCase();
-              return email.includes('@gmail.com') || 
-                     email.includes('@outlook.com') ||
-                     email.includes('@hotmail.com');
-            });
-            
-            if (external.length > 0) {
-              externalAttendees.push({
-                eventId: event.id,
-                subject: event.subject,
-                start: event.start.dateTime,
-                attendees: external
-              });
-            }
-          }
-        }
-        
-        return externalAttendees.map(item => ({json: item}));"
+        "jsCode": "const events = items[0].json.value;\nconst externalAttendees = [];\n\nfor (const event of events) {\n  if (event.attendees) {\n    const external = event.attendees.filter(attendee => {\n      const email = attendee.emailAddress.address.toLowerCase();\n      return email.includes('@gmail.com') || \n             email.includes('@outlook.com') ||\n             email.includes('@hotmail.com');\n    });\n    \n    if (external.length > 0) {\n      externalAttendees.push({\n        eventId: event.id,\n        subject: event.subject,\n        start: event.start.dateTime,\n        attendees: external\n      });\n    }\n  }\n}\n\nreturn externalAttendees.map(item => ({json: item}));"
       },
+      "id": "8c1eb1c1-d254-4c88-8bed-9f4e524543a8",
       "name": "Filter External Contacts",
       "type": "n8n-nodes-base.code",
       "typeVersion": 1,
@@ -89,6 +73,7 @@
           ]
         }
       },
+      "id": "8c1eb1c1-d254-4c88-8bed-9f4e524543a9",
       "name": "Brave Search",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 1,
@@ -108,6 +93,7 @@
           "maxTokens": 200
         }
       },
+      "id": "8c1eb1c1-d254-4c88-8bed-9f4e524543b0",
       "name": "OpenAI",
       "type": "n8n-nodes-base.openAi",
       "typeVersion": 1,
@@ -123,6 +109,7 @@
         "subject": "=Resumo do contato para reunião: {{ $json.subject }}",
         "text": "=Olá equipe,\n\nSegue resumo do contato externo para a reunião de hoje:\n\n{{ $json.summary }}\n\nDetalhes da reunião:\nAssunto: {{ $json.subject }}\nData: {{ $json.start }}\n\nAtenciosamente,\nBot de Resumos"
       },
+      "id": "8c1eb1c1-d254-4c88-8bed-9f4e524543b1",
       "name": "Send Email",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 1,
@@ -189,13 +176,12 @@
       ]
     }
   },
+  "active": false,
   "settings": {
     "executionOrder": "v1"
   },
-  "staticData": null,
+  "tags": [],
   "pinData": {},
-  "versionId": "1",
-  "meta": {
-    "instanceId": "b888bd11f2a9b8f89f5bc"
-  }
+  "id": "123",
+  "name": "Outlook-Brave-OpenAI Integration"
 }
